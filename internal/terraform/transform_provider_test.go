@@ -397,6 +397,53 @@ provider["registry.terraform.io/hashicorp/test"].z`
 	}
 }
 
+// Verify that aliased required providers can still be used without creating local providers
+func TestProviderConfigTransformer_aliasedRequiredProviders(t *testing.T) {
+	mod := testModuleInline(t, map[string]string{
+		"main.tf": `
+terraform {
+  required_providers {
+    test = {
+      source = "registry.terraform.io/hashicorp/test"
+	  configuration_aliases = [test.secondary]
+	}
+  }
+}
+
+// this should connect to this module's provider
+resource "test_object" "primary" {
+}
+
+resource "test_object" "secondary" {
+  provider = test.secondary
+}
+`,
+	})
+	concrete := func(a *NodeAbstractProvider) dag.Vertex { return a }
+
+	g := testProviderTransformerGraph(t, mod)
+	{
+		tf := transformProviders(concrete, mod)
+		if err := tf.Transform(g); err != nil {
+			t.Fatalf("err: %s", err)
+		}
+	}
+
+	expected := `module.moda.module.modb.test_object.a
+  module.moda.provider["registry.terraform.io/hashicorp/test"]
+module.moda.provider["registry.terraform.io/hashicorp/test"]
+module.moda.test_object.a
+  module.moda.provider["registry.terraform.io/hashicorp/test"]
+module.moda.test_object.x
+  provider["registry.terraform.io/hashicorp/test"].z
+provider["registry.terraform.io/hashicorp/test"].z`
+
+	actual := strings.TrimSpace(g.String())
+	if actual != expected {
+		t.Fatalf("expected:\n%s\n\ngot:\n%s", expected, actual)
+	}
+}
+
 func TestProviderConfigTransformer_duplicateLocalName(t *testing.T) {
 	mod := testModuleInline(t, map[string]string{
 		"main.tf": `

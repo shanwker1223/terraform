@@ -105,6 +105,41 @@ func TestDecodeRequiredProvidersBlock(t *testing.T) {
 				DeclRange: blockRange,
 			},
 		},
+		"provider aliases": {
+			Block: &hcl.Block{
+				Type: "required_providers",
+				Body: hcltest.MockBody(&hcl.BodyContent{
+					Attributes: hcl.Attributes{
+						"my-test": {
+							// "test": {
+							// 	Name: "test",
+							// 	Expr: hcltest.MockExprLiteral(cty.ListVal([]cty.Value{cty.StringVal("2.0.0")})),
+							// },
+							Name: "my-test",
+							Expr: hcltest.MockExprLiteral(cty.ObjectVal(map[string]cty.Value{
+								"source":  cty.StringVal("mycloud/test"),
+								"version": cty.StringVal("2.0.0"),
+								"configuration_aliases": cty.ListVal([]cty.Value{cty.CapsuleVal(cty.String, hcl.Expression)}),
+							})),
+						},
+					},
+				}),
+				DefRange: blockRange,
+			},
+			Want: &RequiredProviders{
+				RequiredProviders: map[string]*RequiredProvider{
+					"my-test": {
+						Name:        "my-test",
+						Source:      "mycloud/test",
+						Type:        addrs.NewProvider(addrs.DefaultProviderRegistryHost, "mycloud", "test"),
+						Aliases: 	 []addrs.LocalProviderConfig{addrs.NewDefaultLocalProviderConfig("my-test.secondary")},
+						Requirement: testVC("2.0.0"),
+						DeclRange:   mockRange,
+					},
+				},
+				DeclRange: blockRange,
+			},
+		},
 		"mixed": {
 			Block: &hcl.Block{
 				Type: "required_providers",

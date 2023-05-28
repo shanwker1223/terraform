@@ -219,8 +219,8 @@ func (t *ProviderTransformer) Transform(g *Graph) error {
 					tfdiags.Error,
 					"Provider configuration not present",
 					fmt.Sprintf(
-						"To work with %s its original provider configuration at %s is required, but it has been removed. This occurs when a provider configuration is removed while objects created by that provider still exist in the state. Re-add the provider configuration to destroy %s, after which you can remove the provider configuration again.",
-						dag.VertexName(v), p, dag.VertexName(v),
+						"To work with %s its original provider configuration at %s is required, but it has been removed. This occurs when a provider configuration is removed while objects created by that provider still exist in the state. Re-add the provider configuration to destroy %s, after which you can remove the provider configuration again. %#v",
+						dag.VertexName(v), p, dag.VertexName(v), g,
 					),
 				))
 				break
