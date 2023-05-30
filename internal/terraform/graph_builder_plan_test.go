@@ -58,6 +58,45 @@ func TestPlanGraphBuilder(t *testing.T) {
 	}
 }
 
+func TestAliasedPlanGraphBuilder(t *testing.T) {
+	awsProvider := &MockProvider{
+		GetProviderSchemaResponse: &providers.GetProviderSchemaResponse{
+			Provider: providers.Schema{Block: simpleTestSchema()},
+			ResourceTypes: map[string]providers.Schema{
+				"aws_security_group": {Block: simpleTestSchema()},
+				"aws_instance":       {Block: simpleTestSchema()},
+				"aws_load_balancer":  {Block: simpleTestSchema()},
+			},
+		},
+	}
+	openstackProvider := mockProviderWithResourceTypeSchema("openstack_floating_ip", simpleTestSchema())
+	plugins := newContextPlugins(map[addrs.Provider]providers.Factory{
+		addrs.NewDefaultProvider("aws"):       providers.FactoryFixed(awsProvider),
+		addrs.NewDefaultProvider("openstack"): providers.FactoryFixed(openstackProvider),
+	}, nil)
+
+	b := &PlanGraphBuilder{
+		Config:    testModule(t, "graph-builder-plan-basic"),
+		Plugins:   plugins,
+		Operation: walkPlan,
+	}
+
+	g, err := b.Build(addrs.RootModuleInstance)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	if g.Path.String() != addrs.RootModuleInstance.String() {
+		t.Fatalf("wrong module path %q", g.Path)
+	}
+
+	got := strings.TrimSpace(g.String())
+	want := strings.TrimSpace(testPlanGraphBuilderStr)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("wrong result\n%s", diff)
+	}
+}
+
 func TestPlanGraphBuilder_dynamicBlock(t *testing.T) {
 	provider := mockProviderWithResourceTypeSchema("test_thing", &configschema.Block{
 		Attributes: map[string]*configschema.Attribute{
